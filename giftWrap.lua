@@ -27,7 +27,6 @@ function getHullPolys ( p )
 	table.insert( openEdges, { index1, index2 } )
 
 	while #openEdges ~= 0 do
-		print ("num openEdges - > " .. #openEdges )
 		index1 = openEdges[1][1]
 		index2 = openEdges[1][2]
 		table.remove(openEdges, 1)
@@ -36,7 +35,6 @@ function getHullPolys ( p )
 
 		if not createdEdges["e" .. index1 .. "_" .. index2] then
 
-			print("creating ->".. index1 .. ", " .. index2 .. ", " .. index3 )
 			table.insert( polys, {index1, index2, index3 } )
 
 			createdEdges["e" .. index1 .. "_" .. index2] = true
@@ -44,11 +42,11 @@ function getHullPolys ( p )
 			createdEdges["e" .. index3 .. "_" .. index1] = true
 
 			if not createdEdges["e" .. index3 .. "_" .. index2] then
-				table.insert( openEdges, { index2, index3 } )
+				table.insert( openEdges, { index3, index2 } )
 			end
 
 			if not createdEdges["e" .. index1 .. "_" .. index3] then
-				table.insert( openEdges, { index3, index1 } )
+				table.insert( openEdges, { index1, index3 } )
 			end
 		end
 
@@ -71,11 +69,8 @@ function getNextPoint( p, p1Index, p2Index )
 	local edge = p2 - p1
 	edge:normalize()
 
-	print("searching next for edge-> " .. p1Index .. ", " .. p2Index
-	)
 	local candidateIndex = -1
 
-	print("candidate initial -> " .. candidateIndex )
 	for i = 1, #p do
 		if i ~= p1Index and i ~=p2Index then
 			if candidateIndex == -1 then
@@ -89,10 +84,8 @@ function getNextPoint( p, p1Index, p2Index )
 
 
 				local cross = candidate:cross( v )
-				print ("tring ".. i .. " - cross -> " ..cross.x .. ", " .. cross.y .. ", " .. cross.z .. " - dot " .. cross:dot( edge ) )
 				if cross:dot( edge ) > 0 then
 					candidateIndex = i
-					print("new candidate -> " .. candidateIndex )
 				end
 
 			end

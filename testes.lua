@@ -73,14 +73,12 @@ test("tetrahedron convex Hull test",
 function()
 	local points = { newVec3(0,0,0), newVec3(1,0,0), newVec3(0,1,0), newVec3(0,0,1) }
 	local polys = getHullPolys( points )
-	print (#polys)
-	print (polys[1][1])
-	print (polys[1][2])
-	print (polys[1][3])
+
+	if #polys ~= 4 then return false end
 	if #(polys[1]) ~= 3 then return false end
 	if polys[1][1] ~= 1 then return false end
 	if polys[1][2] ~= 2 then return false end
-	if polys[1][3] ~= 3 then return false end
+	if polys[1][3] ~= 4 then return false end
 	return true
 end
 )
