@@ -45,6 +45,16 @@ function()
 end
 )
 
+test("project over axis test",
+function()
+	local a = newVec3(1,1,0)
+	local x = newVec3(1,0,0)
+	local b = a:projectOver(x)
+	return b.x == 1 and b.y == 0 and b.z == 0
+end
+)
+
+
 test("simple lower point test",
 function()
 	local points = { newVec3(0,0,0), newVec3(0,0,1), newVec3(0,2,1) }
@@ -61,12 +71,16 @@ end
 
 test("tetrahedron convex Hull test",
 function()
-	local points = { newVec3(0,0,0), newVec3(1,0,0), newVec3(1,0,0), newVec3(0,0,1) }
+	local points = { newVec3(0,0,0), newVec3(1,0,0), newVec3(0,1,0), newVec3(0,0,1) }
 	local polys = getHullPolys( points )
---	if #(polys[1]) ~= 3 then return false end
---	if #(polys[1][1]) ~= 1 then return false end
---	if #(polys[1][2]) ~= 2 then return false end
---	if #(polys[1][3]) ~= 3 then return false end
+	print (#polys)
+	print (polys[1][1])
+	print (polys[1][2])
+	print (polys[1][3])
+	if #(polys[1]) ~= 3 then return false end
+	if polys[1][1] ~= 1 then return false end
+	if polys[1][2] ~= 2 then return false end
+	if polys[1][3] ~= 3 then return false end
 	return true
 end
 )

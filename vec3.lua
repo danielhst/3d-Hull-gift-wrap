@@ -12,8 +12,27 @@ function Vec3.cross(self, v)
 					self.x * v.y - self.y * v.x)
 end
 
+function Vec3.equals(self, v)
+	return self.x == v.x and self.y == v.y  and self.z == v.z
+end
+
+
+function Vec3.dot(self, v)
+	return self.x * v.x + self.y * v.y  + self.z * v.z
+end
+
+function Vec3.projectOver(self, v)
+	local length = self:dot(v)
+	return newVec3( length * v.x, length * v.y, length * v.z )
+end
+
+function Vec3.length2(self)
+	return self.x * self.x + self.y * self.y + self.z * self.z
+end
+
+
 function Vec3.normalize(self)
-	local length = self.x * self.x + self.y * self.y + self.z * self.z
+	local length = self:length2()
 	if length == 0 then return end
 	length = math.sqrt ( length )
 	self.x = self.x/length
