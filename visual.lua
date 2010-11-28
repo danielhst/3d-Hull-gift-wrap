@@ -9,11 +9,29 @@ require "vec3"
 require "giftWrap"
 
 
-function generateRandomPoints(n)
+function generateCubeRandomPoints(n)
   local points = {}
   for i=1, n do
     local v = newVec3(math.random()*2-1, math.random()*2-1, math.random()*2-1)
     table.insert(points, v)
+  end
+  return points
+end
+
+function generateParaboloidRandomPoints(n)
+  local points = {}
+  local a = 1
+  local b = 1
+  for i = 1, n do
+    local x = math.random()*2-1
+    local z = math.random()*2-1
+    local y = (x*x)/(a*a) + (z*z)/(b*b)
+    local p = newVec3(x, y, z)
+    
+    local v = newVec3((math.random()*2-1)/10., (math.random()*2-1)/10., (math.random()*2-1)/10.)
+    
+    p = p + v
+    table.insert(points, p)
   end
   return points
 end
@@ -45,16 +63,18 @@ local app = {
     beta = 0,
     r = 10,
     angInc = 5,
+    center = {x = 0, y = 0},
     
     near = 0.1,
     far = 10000.,
     fovy = 60.0,
   },
+  
   render = {
     wireFrameEnabled = false, --W
     flatEnabled = false,     --Q
-
   },
+  
   mouse = {
     state = 0, -- Release
     button = iup.BUTTON1, -- LEFT_BUTTON
@@ -62,9 +82,30 @@ local app = {
   },
   
   options = {
-    movingLightEnabled = false,
     showBorderPoints = true,
     showAxis = true,
+    depthTest = true,
+  },
+  
+  genMethod = {
+    {name = "Cube", func = generateCubeRandomPoints} ,
+    {name = "Paraboloid", func = generateParaboloidRandomPoints} ,
+  },
+  
+  anim = {
+    enabled = true,
+    step = 1,
+    type = "edge",
+    count = 0,
+    
+    transitionTime = 60,
+    edgeTransitionTime = 30,
+    
+    Reset = function (self)
+      self.step = 1
+      self.type = "edge"
+      self.count = 0
+    end
   },
   
   width = 800,
@@ -76,16 +117,27 @@ function app:SetWireframeEnabled()
   gl.PolygonMode(gl.FRONT_AND_BACK, self.render.wireFrameEnabled and gl.LINE or gl.FILL) 
 end
 
-function app:SetMovingLightEnabled()
-  self.options.movingLightEnabled = not self.options.movingLightEnabled
-end
-
 function app:SetBorderOptionsEnabled()
   self.options.showBorderPoints = not self.options.showBorderPoints
 end
 
+function app:SetDepthEnabled()
+  self.options.depthTest = not self.options.depthTest
+end
+
 function app:SetAxisEnabled()
   self.options.showAxis = not self.options.showAxis
+end
+
+function app:SetAnimEnabled()
+  self.anim.enabled = not self.anim.enabled
+  self.anim:Reset()
+end
+
+function app:SetAnimVelocity(value)
+  local val = 1.4 - tonumber(value)
+  self.anim.transitionTime = 60*val
+  self.anim.edgeTransitionTime = 30*val
 end
 
 function app:SetFlatEnabled()
@@ -95,9 +147,6 @@ end
 
 function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
   local glCanvas = iup.glcanvas{buffer="DOUBLE"}
-  local rotateAngle = 0
-  local rotateAngleInc = 5
-  local rotateAxis = newVec3(0,1,0)
   
   local function SetupLights()
     local ambient = { .2, .2, .2, 1.} 
@@ -107,46 +156,17 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
     gl.Light(gl.LIGHT0, gl.AMBIENT,  ambient)
     gl.Light(gl.LIGHT0, gl.DIFFUSE,  diffuse)
     gl.Light(gl.LIGHT0, gl.SPECULAR, specular)
-    
-    gl.Light(gl.LIGHT1, gl.AMBIENT,  ambient)
-    gl.Light(gl.LIGHT1, gl.DIFFUSE,  diffuse)
-    gl.Light(gl.LIGHT1, gl.SPECULAR, specular)
-
   end 
 
-  local function ActiveLight(op)
-    if op then
-      local pos = { 0., 3., 2., 1.} 
-      gl.PushAttrib(gl.LIGHTING_BIT, gl.ENABLE_BIT)
-      
-      gl.Disable(gl.LIGHTING)
-      
-      gl.Enable(gl.POINT_SMOOTH)
-      gl.PointSize(12)
-      
-      gl.Color(1,1,1)
-      gl.Begin(gl.POINTS)
-        gl.Vertex(pos[1], pos[2], pos[3])
-      gl.End()
-      
-      gl.Enable(gl.LIGHTING)
-      gl.Enable(gl.LIGHT0)
-
-      gl.Light(gl.LIGHT0, gl.POSITION, pos)
-    else
-      gl.PopAttrib()
-    end
-  end
-  
   local function ActiveCamLight(op, x, y, z)
     if op then
       local pos = { x, y, z, 1.} 
       gl.PushAttrib(gl.LIGHTING_BIT, gl.ENABLE_BIT)
       gl.Enable(gl.LIGHTING)
       
-      gl.Enable(gl.LIGHT1)
+      gl.Enable(gl.LIGHT0)
 
-      gl.Light(gl.LIGHT1, gl.POSITION, pos)
+      gl.Light(gl.LIGHT0, gl.POSITION, pos)
     else
       gl.PopAttrib()
     end
@@ -158,7 +178,7 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
     local specular = { 1., 1., 1., 1.} 
     local shi = 10
     if op then
-      gl.PushAttrib('LIGHTING_BIT')
+      gl.PushAttrib(gl.LIGHTING_BIT)
       gl.Material(gl.FRONT_AND_BACK, gl.AMBIENT,  ambient);
       gl.Material(gl.FRONT_AND_BACK, gl.DIFFUSE,  diffuse);
       gl.Material(gl.FRONT_AND_BACK, gl.SPECULAR, specular);
@@ -170,22 +190,41 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
 
   local function SetupCamera()
     local x = app.cam.r*math.sin(math.rad(app.cam.beta))*math.cos(math.rad(app.cam.alpha))
-    local y = app.cam.r*math.sin(math.rad(app.cam.alpha))
+    local y = app.cam.r*math.sin(math.rad(app.cam.alpha)) 
     local z = app.cam.r*math.cos(math.rad(app.cam.beta))*math.cos(math.rad(app.cam.alpha))
-
+  
     local nextAlpha =  math.min(app.cam.alpha + app.cam.angInc, 360.)
 
     local ux = math.sin(math.rad(app.cam.beta))*math.cos(math.rad(nextAlpha)) - x
     local uy = math.sin(math.rad(nextAlpha)) - y
     local uz = math.cos(math.rad(app.cam.beta))*math.cos(math.rad(nextAlpha)) - z
+
+
+    local pos = newVec3(x,y,z)
+    local at = newVec3(0,0,0)
+    local up = newVec3(ux,uy,uz)
+    up:normalize()
+    
+    local dir = at - pos
+    dir:normalize()
+    
+    local right = dir:cross(up)
+    right:normalize()
+    
+    up = right:cross(dir)
+    up:normalize()
+    
+    at = at + right*app.cam.center.x + up*app.cam.center.y
+    pos = pos + right*app.cam.center.x + up*app.cam.center.y
     
     gl.LoadIdentity()
-    glu.LookAt(x,y,z, 0, 0, 0, ux, uy, uz)
-    return x, y, z, 0, 0, 0, ux, uy, yz
+    glu.LookAt(pos.x, pos.y, pos.z, at.x, at.y, at.z, up.x, up.y, up.z)
+    return pos.x, pos.y, pos.z, at.x, at.y, at.z, up.x, up.y, up.z
   end        
 
   local function DrawAxis()
-    gl.PushAttrib(gl.LINE_BIT)
+    gl.PushAttrib(gl.LINE_BIT, gl.ENABLE_BIT)
+    gl.Disable(gl.LIGHTING)
     gl.LineWidth(2)
     gl.Begin(gl.LINES)
       gl.Color(0, 0, 1); gl.Vertex(0, 0, 0); gl.Color(0, 0, 1); gl.Vertex(0, 0, 1000)
@@ -195,6 +234,94 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
     gl.PopAttrib()
   end
   
+  local function DrawPoints(points, borderpoints)
+    gl.PushAttrib(gl.ENABLE_BIT, gl.POINT_BIT)
+    if app.options.depthTest == false then
+      gl.Disable(gl.DEPTH_TEST)
+    end
+    gl.Disable(gl.LIGHTING)
+    gl.Enable(gl.POINT_SMOOTH)
+    gl.PointSize(9)
+    gl.Begin(gl.POINTS)
+      for i, point in ipairs(points) do
+        if borderpoints[i] then
+          gl.Color(0,0,1)
+        else 
+          gl.Color(1,0,0)
+        end
+        gl.Vertex(point.x, point.y, point.z)
+      end
+    gl.End()
+
+    gl.PopAttrib()
+  end  
+  
+  local function DrawHull(points, polys, x, y, z)
+    ActiveMaterial(true)
+    gl.Begin(gl.TRIANGLES)
+    gl.Color(0,1,0)
+    for i, triangle in ipairs(polys) do
+      local v1 = points[triangle[2]] - points[triangle[1]]
+      local v2 = points[triangle[3]] - points[triangle[1]]
+      local normal = v1:cross(v2)
+      normal:normalize()
+
+      gl.Normal(normal.x, normal.y, normal.z)
+      for j, vertex_index in ipairs(triangle) do
+        gl.Vertex(points[vertex_index].x, points[vertex_index].y, points[vertex_index].z)
+      end
+    end
+    gl.End()
+    ActiveMaterial(false)
+  end
+  
+  local function DrawHullAnim(points, polys, x, y, z)
+    ActiveMaterial(true)
+    gl.Begin(gl.TRIANGLES)
+    gl.Color(0,1,0)
+    for i, triangle in ipairs(polys) do
+      if i >= app.anim.step then
+        break
+      end
+      local v1 = points[triangle[2]] - points[triangle[1]]
+      local v2 = points[triangle[3]] - points[triangle[1]]
+      local normal = v1:cross(v2)
+      normal:normalize()
+
+      gl.Normal(normal.x, normal.y, normal.z)
+      for j, vertex_index in ipairs(triangle) do
+        gl.Vertex(points[vertex_index].x, points[vertex_index].y, points[vertex_index].z)
+      end
+    end
+    gl.End()
+
+    ActiveMaterial(false)
+    
+    gl.PushAttrib(gl.LINE_BIT, gl.ENABLE_BIT)
+    gl.Disable(gl.LIGHTING)
+    gl.LineWidth(4)
+    gl.Begin(gl.LINES)
+    gl.Color(0,1,0)
+      for j = 1, 2 do
+        gl.Vertex(points[polys[app.anim.step][j]].x, points[polys[app.anim.step][j]].y, points[polys[app.anim.step][j]].z)
+      end
+    gl.End()
+    gl.PopAttrib()
+    
+    if app.anim.count > app.anim.transitionTime then
+      if app.anim.type == "edge" then
+        app.anim.type = "triangle" 
+      elseif app.anim.count > app.anim.transitionTime + app.anim.edgeTransitionTime then
+        app.anim.step = app.anim.step + 1
+        app.anim.type = "edge" 
+        app.anim.count = 0
+      else 
+        app.anim.count = app.anim.count + 1
+      end
+    else
+      app.anim.count = app.anim.count + 1
+    end 
+  end
 
   function glCanvas:initGl()
     iup.GLMakeCurrent(self)
@@ -266,7 +393,7 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
       elseif key == 316 then --F2
 
       elseif key == 49 then --1
-        -- points = generateRandomPoints(10)
+        -- points = generateCubeRandomPoints(10)
         -- polys = getHullPolys( points ) 
       elseif key == 50 then --2
       elseif key == 51 then --3
@@ -294,6 +421,10 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
       app.cam.alpha = (app.cam.alpha + angleY)%360
       app.cam.beta =  (app.cam.beta - angleX)%360
       
+    elseif app.mouse.button == iup.BUTTON2 and app.mouse.state == 1 then --MIDDLE_BUTTON PRESSED
+      app.cam.center.x = app.cam.center.x  - (x - app.mouse.pos.x)/50.0
+      app.cam.center.y = app.cam.center.y  + (y - app.mouse.pos.y)/50.0
+      
     elseif app.mouse.button == iup.BUTTON3 and app.mouse.state == 1 then --RIGHT_BUTTON PRESSED
       app.cam.r = app.cam.r + (y - app.mouse.pos.y)/20.0
     end
@@ -309,6 +440,7 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
 
     local x, y, z = SetupCamera()
 
+    
     if app.options.showAxis then
       DrawAxis()
     end
@@ -317,48 +449,16 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
     local polys = GetPolys_cb()
     local borderpoints = GetBorderPoints_cb()
     
-    gl.Enable(gl.POINT_SMOOTH)
-    gl.PointSize(9)
-    gl.Begin(gl.POINTS)
-      for i, point in ipairs(points) do
-        if borderpoints[i] then
-          gl.Color(0,0,1)
-        else 
-          gl.Color(1,0,0)
-        end
-        gl.Vertex(point.x, point.y, point.z)
-      end
-    gl.End()
-   
-
-    if app.options.movingLightEnabled then
-      rotateAngle = rotateAngle + rotateAngleInc
-    end
-    gl.PushMatrix()
-    gl.Rotate(rotateAngle, rotateAxis.x, rotateAxis.y, rotateAxis.z)
-      ActiveLight(true)
-    gl.PopMatrix()
-
     ActiveCamLight(true, x, y, z)
-    ActiveMaterial(true)
-    gl.Begin(gl.TRIANGLES)
-    gl.Color(0,1,0)
-    for i, triangle in ipairs(polys) do
-      local v1 = points[triangle[2]] - points[triangle[1]]
-      local v2 = points[triangle[3]] - points[triangle[1]]
-      local normal = v1:cross(v2)
-      normal:normalize()
-
-      gl.Normal(normal.x, normal.y, normal.z)
-      for j, vertex_index in ipairs(triangle) do
-        gl.Vertex(points[vertex_index].x, points[vertex_index].y, points[vertex_index].z)
-      end
+    if app.anim.enabled and app.anim.step <= #polys then
+      DrawHullAnim(points, polys)
+    else     
+      DrawHull(points, polys)
     end
-    gl.End()
-    ActiveMaterial(false)
     ActiveCamLight(false)
-    ActiveLight(false)
     
+    DrawPoints(points, borderpoints)
+
     iup.GLSwapBuffers(self)
   end
 
@@ -380,18 +480,26 @@ local ConvexHullVisual = {
 }
 
 function ConvexHullVisual:GeneratePoints()
-  self.points = generateRandomPoints(self.numPoints)
+  self.points = app.genMethod[tonumber(self.generationMethodsList.value)].func(self.numPoints)
   self.polys = getHullPolys(self.points)
   self.borderpoints = getBorderPoints(self.points, self.polys)
+  
   for i, point in ipairs(self.points) do
     local str = string.format("%.2f", point.x)..",  ".. string.format("%.2f", point.y)..",  ".. string.format("%.2f", point.z)
     self.pointsList[i] = str
   end
   self.pointsList[#self.points + 1] = nil
+  app.anim:Reset()
 end
 
 function ConvexHullVisual:BuildInterface()
   self.pointsList = iup.list{expand = "VERTICAL"}
+  self.generationMethodsList = iup.list{dropdown = "YES", value = 1}
+  for i, method in ipairs(app.genMethod) do
+    self.generationMethodsList[i] = method.name
+  end
+  self.generationMethodsList[#app.genMethod + 1] = nil
+  
   self:GeneratePoints()
 
   self.numPointsText = iup.text{value = tostring(self.numPoints)}
@@ -401,11 +509,21 @@ function ConvexHullVisual:BuildInterface()
     iup.vbox{
       iup.fill{size = 5},
       -------------------------
+      iup.button{title = "ResetCamera",  
+        action = function(lself) app.cam.center = {x = 0, y = 0} app.cam.alpha = 0 app.cam.beta = 0    end
+      },
+      iup.fill{size = 5},
+      
       iup.toggle{title = "WireFrame", value = app.render.wireFrameEnabled and "ON" or "OFF", 
         action = function(lself) app:SetWireframeEnabled()     end
       },
       iup.fill{size = 5},
       
+      iup.toggle{title = "DepthTest", value = app.options.depthTest and "ON" or "OFF", 
+        action = function(lself) app:SetDepthEnabled()     end
+      },
+      iup.fill{size = 5},      
+            
       iup.toggle{title = "BorderPoints", value = app.options.showBorderPoints and "ON" or "OFF", 
         action = function(lself) app:SetBorderOptionsEnabled()     end
       },
@@ -414,10 +532,16 @@ function ConvexHullVisual:BuildInterface()
       iup.toggle{title = "Axis", value = app.options.showAxis and "ON" or "OFF", 
         action = function(lself) app:SetAxisEnabled()     end
       },
+      iup.fill{size = 5},    
+      
+      iup.toggle{title = "Animation", value = app.anim.enabled and "ON" or "OFF", 
+        action = function(lself) app:SetAnimEnabled()     end
+      },
       iup.fill{size = 5},
       
-      iup.toggle{title = "MovingLight", value = app.render.movingLight and "ON" or "OFF", 
-        action = function(lself) app:SetMovingLightEnabled()     end
+      iup.label{title = "AnimationSpeed:"},
+      iup.val{"horizontal", value = .5, 
+        button_release_cb = function(lself) app:SetAnimVelocity(lself.value) return iup.DEFAULT end
       },
       ------------------------
       iup.fill{size = 15},
@@ -427,6 +551,9 @@ function ConvexHullVisual:BuildInterface()
       },
       ------------------------
       iup.fill{size = 15},
+      iup.label{title = "Generation:"},
+      self.generationMethodsList,
+      iup.fill{size = 5},
       iup.vbox{
         iup.label{title = "Num Points:"},
         iup.fill{size = 5},

@@ -69,6 +69,26 @@ function()
 end
 )
 
+test("lower point bug case test",
+function()
+	local points = {
+	newVec3( -0.58, -0.63, 0.94 ),
+	newVec3( -0.56,  0.68, 0.87 ),
+	newVec3( -0.11, -0.15, 0.09 ),
+	newVec3( -0.53, -0.16, 0.25 ),
+	newVec3(  0.28,  0.59, 1.13 ),
+	newVec3(  0.55,  0.89, 0.31 ),
+	newVec3(  0.30, -0.53, 1.38 ),
+	newVec3(  0.72, -0.84, 0.95 ),
+	newVec3( -0.87, -0.44, 0.94 ),
+	newVec3(  0.28, -0.87, 0.75 )
+	}
+
+	return lower( points ) == 3
+end
+)
+
+
 test("tetrahedron convex Hull test",
 function()
 	local points = { newVec3(0,0,0), newVec3(1,0,0), newVec3(0,1,0), newVec3(0,0,1) }
@@ -77,8 +97,8 @@ function()
 	if #polys ~= 4 then return false end
 	if #(polys[1]) ~= 3 then return false end
 	if polys[1][1] ~= 1 then return false end
-	if polys[1][2] ~= 2 then return false end
-	if polys[1][3] ~= 4 then return false end
+	if polys[1][2] ~= 4 then return false end
+	if polys[1][3] ~= 3 then return false end
 	return true
 end
 )

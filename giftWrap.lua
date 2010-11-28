@@ -4,11 +4,15 @@ local points = {}
 
 function lower( p )
 	local index = 1
-	for i = 1, #p do
+	for i = 2, #p do
 		if p[i].z < p[index].z then index = i
 		--tie
-		elseif p[i].y < p[index].y then index = i
-		elseif p[i].x < p[index].x then index = i
+		elseif p[i].z == p[index].z then
+			if p[i].y < p[index].y then index = i
+			elseif p[i].x < p[index].x then index = i
+			elseif p[i].y == p[index].y and p[i].x == p[index].x then
+				error("duplicate point with index " .. i .. " and " .. index )
+			end
 		end
 	end
 	return index
@@ -60,7 +64,7 @@ function getNextPoint( p, p1Index, p2Index )
 	local p1 = p[p1Index]
 	local p2
 	if p2Index < 1 then
-		p2 = p1 + newVec3( 0, 1, 0 )
+		p2 = p1 - newVec3( 1, 1, 0 )
 	else
 		p2 = p[p2Index]
 	end

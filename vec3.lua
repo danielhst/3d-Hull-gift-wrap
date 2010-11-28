@@ -6,6 +6,7 @@ Vec3 = {}
 Vec3.__index = Vec3
 Vec3.__add = function(self, other) return newVec3( self.x + other.x, self.y + other.y, self.z + other.z ) end
 Vec3.__sub = function(self, other) return newVec3( self.x - other.x, self.y - other.y, self.z - other.z ) end
+Vec3.__mul = function(self, other) return newVec3( self.x*other, self.y*other, self.z*other ) end
 function Vec3.cross(self, v)
 	return newVec3( self.y * v.z - self.z * v.y,
 					self.z * v.x - self.x * v.z,
