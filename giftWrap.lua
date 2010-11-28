@@ -25,39 +25,45 @@ function getHullPolys ( p )
 	local openEdges = {}
 	local createdEdges = {}
 
+	function edgeExists( p1, p2 ) return createdEdges["e" .. p1 .. "_" .. p2] end
+
+	-- marks the edge (p1,p2) as created and adds the symetrical
+	-- to the openEdges list
+	function addEdge( p1, p2 )
+		createdEdges["e" .. p1 .. "_" .. p2] = true
+		if not edgeExists( p2, p1) then
+			table.insert( openEdges, { p2, p1 } )
+		end
+	end
+
 	local index1 = lower( p )
 	local index2 = getNextPoint( p, index1, -1 )
 
-	table.insert( openEdges, { index1, index2 } )
+	addEdge( index2, index1 )
 
 	while #openEdges ~= 0 do
-		index1 = openEdges[1][1]
-		index2 = openEdges[1][2]
-		table.remove(openEdges, 1)
+		index1 = openEdges[#openEdges][1]
+		index2 = openEdges[#openEdges][2]
+		table.remove(openEdges, #openEdges )
 
-		local index3 = getNextPoint( p, index1, index2 )
-
-		if not createdEdges["e" .. index1 .. "_" .. index2] then
+		-- check if this edge does remain open, since it could be closed in other iteration
+		if not edgeExists(index1, index2) then
+			local index3 = getNextPoint( p, index1, index2 )
 
 			table.insert( polys, {index1, index2, index3 } )
+			addEdge( index1, index2 )
+			addEdge( index2, index3 )
+			addEdge( index3, index1 )
 
-			createdEdges["e" .. index1 .. "_" .. index2] = true
-			createdEdges["e" .. index2 .. "_" .. index3] = true
-			createdEdges["e" .. index3 .. "_" .. index1] = true
-
-			if not createdEdges["e" .. index3 .. "_" .. index2] then
-				table.insert( openEdges, { index3, index2 } )
-			end
-
-			if not createdEdges["e" .. index1 .. "_" .. index3] then
-				table.insert( openEdges, { index1, index3 } )
-			end
 		end
 
 	end
 
 	return polys
 end
+
+
+
 
 -- gets the next point on the list that forms an suport plane with the two other
 function getNextPoint( p, p1Index, p2Index )
