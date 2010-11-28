@@ -55,8 +55,7 @@ function getHullPolys ( p )
 	return polys
 end
 
--- gets the next point on the list that touches the plane first when we
--- rotate it around the edge defined by ( p1, p2 )
+-- gets the next point on the list that forms an suport plane with the two other
 function getNextPoint( p, p1Index, p2Index )
 	local p1 = p[p1Index]
 	local p2
