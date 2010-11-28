@@ -94,6 +94,7 @@ local app = {
   
   anim = {
     enabled = true,
+    pause = false, 
     step = 1,
     type = "edge",
     count = 0,
@@ -138,6 +139,28 @@ function app:SetAnimVelocity(value)
   local val = 1.4 - tonumber(value)
   self.anim.transitionTime = 60*val
   self.anim.edgeTransitionTime = 30*val
+end
+
+function app:SetAnimPause()
+  self.anim.pause = not self.anim.pause
+end
+
+function app:SetAnimNextStep()
+  if self.anim.enabled then
+    self.anim.pause = true
+    self.anim.step = self.anim.step + 1
+    self.anim.type = "edge"
+    self.anim.count = 0
+  end
+end
+
+function app:SetAnimPrevStep()
+  if self.anim.enabled then
+    self.anim.pause = true
+    self.anim.step = math.max(self.anim.step - 1, 1)
+    self.anim.type = "edge"
+    self.anim.count = 0
+  end
 end
 
 function app:SetFlatEnabled()
@@ -308,19 +331,21 @@ function CreateGlCanvas(GetPoints_cb, GetPolys_cb, GetBorderPoints_cb)
     gl.End()
     gl.PopAttrib()
     
-    if app.anim.count > app.anim.transitionTime then
-      if app.anim.type == "edge" then
-        app.anim.type = "triangle" 
-      elseif app.anim.count > app.anim.transitionTime + app.anim.edgeTransitionTime then
-        app.anim.step = app.anim.step + 1
-        app.anim.type = "edge" 
-        app.anim.count = 0
-      else 
+    if app.anim.pause == false then
+      if app.anim.count > app.anim.transitionTime then
+        if app.anim.type == "edge" then
+          app.anim.type = "triangle" 
+        elseif app.anim.count > app.anim.transitionTime + app.anim.edgeTransitionTime then
+          app.anim.step = app.anim.step + 1
+          app.anim.type = "edge" 
+          app.anim.count = 0
+        else 
+          app.anim.count = app.anim.count + 1
+        end
+      else
         app.anim.count = app.anim.count + 1
-      end
-    else
-      app.anim.count = app.anim.count + 1
-    end 
+      end 
+    end
   end
 
   function glCanvas:initGl()
@@ -504,6 +529,45 @@ function ConvexHullVisual:BuildInterface()
 
   self.numPointsText = iup.text{value = tostring(self.numPoints)}
   
+  
+  self.animPauseButton = iup.button{title = app.anim.pause and "Play" or "Pause", 
+    active = app.anim.enabled and "YES" or "NO",
+    action = function(lself) 
+      app:SetAnimPause() 
+      lself.title = app.anim.pause and "Play" or "Pause"  
+      self.animPrevButton.active = app.anim.step > 1 and "YES" or "NO"  
+      self.animNextButton.active = app.anim.step <= #self.polys and "YES" or "NO"  
+    end
+  }
+  
+  self.animPrevButton = iup.button{title = "Prev", 
+    action = function(lself) 
+      app:SetAnimPrevStep() 
+      lself.active = app.anim.step > 1 and "YES" or "NO"  
+      self.animPauseButton.title = app.anim.pause and "Play" or "Pause"      self.animNextButton.active = app.anim.step <= #self.polys and "YES" or "NO"  
+    end
+  }
+  
+  self.animNextButton = iup.button{title = "Next", 
+    action = function(lself) 
+      app:SetAnimNextStep() 
+      lself.active = app.anim.step <= #self.polys and "YES" or "NO"  
+      self.animPauseButton.title = app.anim.pause and "Play" or "Pause"
+      self.animPrevButton.active = app.anim.step > 1 and "YES" or "NO"  
+    end
+  }
+  
+  self.animToggle = iup.toggle{title = "Animation", value = app.anim.enabled and "ON" or "OFF", 
+    action = function(lself) 
+      app:SetAnimEnabled()  
+      self.animNextButton.active = (app.anim.enabled and app.anim.step <= #self.polys) and "YES" or "NO" 
+      self.animPrevButton.active = (app.anim.enabled and app.anim.step > 1) and "YES" or "NO"  
+      self.animPauseButton.active = app.anim.enabled and "YES" or "NO"  
+    end
+  }
+  
+
+  
   self.opsBox = iup.hbox {
     iup.fill{size = 5},
     iup.vbox{
@@ -534,10 +598,15 @@ function ConvexHullVisual:BuildInterface()
       },
       iup.fill{size = 5},    
       
-      iup.toggle{title = "Animation", value = app.anim.enabled and "ON" or "OFF", 
-        action = function(lself) app:SetAnimEnabled()     end
-      },
+      self.animToggle,
       iup.fill{size = 5},
+      
+      iup.label{title = "AnimationControll:"},
+      iup.hbox{
+        self.animPrevButton,
+        self.animPauseButton,
+        self.animNextButton,
+      },
       
       iup.label{title = "AnimationSpeed:"},
       iup.val{"horizontal", value = .5, 
