@@ -2,6 +2,11 @@ require "vec3"
 
 local points = {}
 
+--[[
+ returns the lower point of the points list. in the case of a tie
+ the other y coordinate is used, and the x is used in the case of
+ another tie. Trows an erro in the case of a duplicate minimum.
+ ]]
 function lower( p )
 	local index = 1
 	for i = 2, #p do
@@ -27,13 +32,10 @@ function getHullPolys ( p )
 
 	function edgeExists( p1, p2 ) return createdEdges["e" .. p1 .. "_" .. p2] end
 
-	-- marks the edge (p1,p2) as created and adds the symetrical
-	-- to the openEdges list
+	-- marks the edge (p1,p2) as created and adds the symetrical to the openEdges list
 	function addEdge( p1, p2 )
 		createdEdges["e" .. p1 .. "_" .. p2] = true
-		if not edgeExists( p2, p1) then
-			table.insert( openEdges, { p2, p1 } )
-		end
+		if not edgeExists( p2, p1) then	table.insert( openEdges, { p2, p1 } ) end
 	end
 
 	local index1 = lower( p )
